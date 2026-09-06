@@ -41,13 +41,10 @@ jobs:
       - name: Embed UAC manifest + icon (.syso)
         # Without the requireAdministrator manifest the exe starts
         # unprivileged on other machines (no UAC prompt) and the core
-        # cannot create the TUN adapter.
+        # cannot create the TUN adapter. pwsh: single line, & call operator.
         run: |
           go install github.com/akavel/rsrc@v0.10.2
-          "$(go env GOPATH)/bin/rsrc.exe" `
-            -manifest build/windows/easytier-pro-gui.exe.manifest `
-            -ico build/windows/icon.ico `
-            -o rsrc_windows_amd64.syso
+          & "$(go env GOPATH)/bin/rsrc.exe" -manifest build/windows/easytier-pro-gui.exe.manifest -ico build/windows/icon.ico -o rsrc_windows_amd64.syso
 
       - name: Build desktop exe
         env:
