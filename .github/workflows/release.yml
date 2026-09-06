@@ -189,5 +189,5 @@ jobs:
           VER="${TAG#v}"
           mv easytier-pro-gui.exe "easytier-pro-gui_${VER}_windows_amd64.exe"
           sha256sum * > sha256sums.txt
-          gh release create "$TAG" --title "EasyTier Pro $TAG" --generate-notes             || gh release upload "$TAG" --clobber
-          gh release upload "$TAG" --clobber             easytier-pro-gui_${VER}_windows_amd64.exe             sha256sums.txt             easytier-pro_*.deb             easytier-pro-server-linux-amd64             easytier-pro-server-linux-arm64
+          gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "EasyTier Pro $TAG" --generate-notes             || gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber             easytier-pro-gui_${VER}_windows_amd64.exe             sha256sums.txt             easytier-pro_*.deb             easytier-pro-server-linux-amd64             easytier-pro-server-linux-arm64
