@@ -149,16 +149,16 @@ jobs:
         run: |
           VER="${VERSION#v}"
           chmod +x build/bin/easytier-pro-server-linux-*
-          go build -o build/mkdeb ./build/mkdeb
-          ./build/mkdeb -out "build/bin/easytier-pro_${VER}_amd64.deb" \
+          go build -o build/mkdeb.bin ./build/mkdeb  # binary must differ from the source dir
+          ./build/mkdeb.bin -out "build/bin/easytier-pro_${VER}_amd64.deb" \
             -bin build/bin/easytier-pro-server-linux-amd64 -arch amd64 -version "$VER"
-          ./build/mkdeb -out "build/bin/easytier-pro_${VER}_arm64.deb" \
+          ./build/mkdeb.bin -out "build/bin/easytier-pro_${VER}_arm64.deb" \
             -bin build/bin/easytier-pro-server-linux-arm64 -arch arm64 -version "$VER"
-          ./build/mkdeb -out "build/bin/easytier-pro-gui_${VER}_amd64.deb" \
+          ./build/mkdeb.bin -out "build/bin/easytier-pro-gui_${VER}_amd64.deb" \
             -bin build/bin/easytier-pro-gui-linux-amd64 -arch amd64 -version "$VER" \
             -mode gui -ico build/appicon.png
-          ./build/mkdeb -list "build/bin/easytier-pro_${VER}_amd64.deb"
-          ./build/mkdeb -list "build/bin/easytier-pro-gui_${VER}_amd64.deb"
+          ./build/mkdeb.bin -list "build/bin/easytier-pro_${VER}_amd64.deb"
+          ./build/mkdeb.bin -list "build/bin/easytier-pro-gui_${VER}_amd64.deb"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
