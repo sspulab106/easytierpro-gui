@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"runtime/debug"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
@@ -237,7 +238,7 @@ func (a *App) Init() {
 	if a.web != nil {
 		a.web.SetFleet(a.fleet)
 	}
-	go a.fleetLoop()
+	a.goSafe("fleetLoop", a.fleetLoop)
 
 	// One-time migration: the pre-multi-user owner account (settings fields)
 	// becomes the first admin in the account store, so user lists and the
@@ -256,13 +257,13 @@ func (a *App) Init() {
 			a.alog("firewall.cleanup", fmt.Sprintf("removed %d stale rules", n))
 		}
 	}()
-	go a.backgroundLoop()
+	a.goSafe("backgroundLoop", a.backgroundLoop)
 
 	// If a core is already running (e.g. service mode), reflect that.
-	go func() {
+	a.goSafe("initialCoreStatus", func() {
 		time.Sleep(500 * time.Millisecond)
 		a.refreshCoreStatus()
-	}()
+	})
 }
 
 // applySettings applies live-effect settings: custom paths, web bind, token.
@@ -1485,6 +1486,7 @@ func (a *App) Metrics(activeSessions int) (string, error) {
 }
 
 func (a *App) onCoreStatusChanged(running bool) {
+	defer a.recoverPanic("onCoreStatusChanged")
 	a.statusMu.Lock()
 	if running {
 		a.coreStatus = "running"
@@ -1498,6 +1500,7 @@ func (a *App) onCoreStatusChanged(running bool) {
 }
 
 func (a *App) onCoreExit(err error) {
+	defer a.recoverPanic("onCoreExit")
 	if err != nil {
 		a.statusMu.Lock()
 		a.coreStatus = "error"
@@ -1510,6 +1513,7 @@ func (a *App) onCoreExit(err error) {
 }
 
 func (a *App) onCoreLog(line string) {
+	defer a.recoverPanic("onCoreLog")
 	a.mu.Lock()
 	a.lastLog = append(a.lastLog, line)
 	if len(a.lastLog) > 1000 {
@@ -1542,7 +1546,15 @@ func (a *App) CoreStatus() string {
 
 // StartCore launches one easytier-core process per enabled network instance
 // (per-network process model: instances are independent).
-func (a *App) StartCore() error {
+func (a *App) StartCore() (err error) {
+	defer a.recoverToErr("StartCore", &err)
+	// Without elevation easytier-core cannot create the TUN adapter; it
+	// would linger in the background while every network stays broken.
+	// Refuse with a clear message instead (the manifest normally forces
+	// the UAC prompt; this covers portable/manual launches).
+	if runtime.GOOS == "windows" && !isElevated() {
+		return fmt.Errorf("需要管理员权限：请右键以管理员身份运行，或在弹出的 UAC 对话框中确认")
+	}
 	a.alog("core.start", "")
 	a.statusMu.Lock()
 	a.coreStatus = "starting"
@@ -1564,7 +1576,8 @@ func (a *App) StopCore() error {
 // RestartCore stops everything and starts fresh. Reserved for global
 // changes (config dir, binary update) — single-network operations use
 // reconcileInstances and never disturb other running networks.
-func (a *App) RestartCore() error {
+func (a *App) RestartCore() (err error) {
+	defer a.recoverToErr("RestartCore", &err)
 	a.alog("core.restart", "")
 	a.applyLeases() // sticky-DHCP: re-apply last assigned virtual IPs
 	a.statusMu.Lock()
@@ -2027,7 +2040,8 @@ func (a *App) DevicesList() []devices.Device {
 // DeviceApprove allows a peer (optionally with a credential lifetime in
 // days; 0 = no expiry). A previously written ACL deny rule is lifted and
 // the core restarts so the relaxed rules apply.
-func (a *App) DeviceApprove(peerID string, days int) error {
+func (a *App) DeviceApprove(peerID string, days int) (err error) {
+	defer a.recoverToErr("DeviceApprove", &err)
 	a.alog("device.approve", fmt.Sprintf("%s (%dd)", peerID, days))
 	if a.devices == nil {
 		return fmt.Errorf("device store unavailable")
@@ -2045,7 +2059,8 @@ func (a *App) DeviceApprove(peerID string, days int) error {
 // DeviceDeny blacklists a peer: the entry moves to the deny list and an ACL
 // drop rule is generated in its network config, then the core restarts so
 // the rule takes effect.
-func (a *App) DeviceDeny(peerID string) error {
+func (a *App) DeviceDeny(peerID string) (err error) {
+	defer a.recoverToErr("DeviceDeny", &err)
 	a.alog("device.deny", peerID)
 	if a.devices == nil {
 		return fmt.Errorf("device store unavailable")
@@ -2066,7 +2081,8 @@ func (a *App) DeviceDeny(peerID string) error {
 
 // DeviceDenyCurrent blacklists a connected peer, carrying over the
 // hostname/network/IP observed in the last admission scan.
-func (a *App) DeviceDenyCurrent(peerID, hostname, network, ipv4 string) error {
+func (a *App) DeviceDenyCurrent(peerID, hostname, network, ipv4 string) (err error) {
+	defer a.recoverToErr("DeviceDenyCurrent", &err)
 	a.alog("device.deny", peerID+" "+hostname)
 	if a.devices == nil {
 		return fmt.Errorf("device store unavailable")
@@ -2083,7 +2099,8 @@ func (a *App) DeviceDenyCurrent(peerID, hostname, network, ipv4 string) error {
 
 // DeviceRemove forgets an entry (the peer becomes unknown again; a stale
 // deny rule is lifted if its virtual IP is known).
-func (a *App) DeviceRemove(peerID string) error {
+func (a *App) DeviceRemove(peerID string) (err error) {
+	defer a.recoverToErr("DeviceRemove", &err)
 	a.alog("device.remove", peerID)
 	if a.devices == nil {
 		return fmt.Errorf("device store unavailable")
@@ -3219,5 +3236,56 @@ func (a *App) emit(event string, data any) {
 	if a.eventSink == nil {
 		return
 	}
+	// EventsEmit into a torn-down webview must never kill the process.
+	defer a.recoverPanic("emit:" + event)
 	a.eventSink(event, data)
+}
+
+// ---- panic containment ----
+// The GUI hosts long-running background loops and child-process callbacks;
+// a single panic there used to take the whole window down while the core
+// children kept running (the "GUI crashed, core alive" symptom). Every
+// goroutine and callback funnels through recoverPanic, which writes the
+// stack to the app log plus a standalone panic-*.log for diagnosis.
+
+func (a *App) recoverPanic(where string) {
+	if r := recover(); r != nil {
+		stack := debug.Stack()
+		msg := fmt.Sprintf("panic in %s: %v\n%s", where, r, stack)
+		if a.appLog != nil {
+			a.appLog.Errorf("panic", "%s", msg)
+		}
+		writePanicDump(where, msg)
+	}
+}
+
+// goSafe runs fn in a guarded goroutine.
+func (a *App) goSafe(name string, fn func()) {
+	go func() {
+		defer a.recoverPanic(name)
+		fn()
+	}()
+}
+
+// recoverToErr guards a Wails-bound call: a panic becomes a returned error
+// (surfaced in the UI) instead of a process crash.
+func (a *App) recoverToErr(where string, errp *error) {
+	if r := recover(); r != nil {
+		stack := debug.Stack()
+		msg := fmt.Sprintf("panic in %s: %v\n%s", where, r, stack)
+		if a.appLog != nil {
+			a.appLog.Errorf("panic", "%s", msg)
+		}
+		writePanicDump(where, msg)
+		if errp != nil {
+			*errp = fmt.Errorf("internal error (%s), see app log", where)
+		}
+	}
+}
+
+func writePanicDump(where, msg string) {
+	dir := filepath.Join(core.DefaultPaths.LogDir(), "app")
+	_ = os.MkdirAll(dir, 0o755)
+	name := fmt.Sprintf("panic-%s.log", time.Now().Format("20060102-150405"))
+	_ = os.WriteFile(filepath.Join(dir, name), []byte("where: "+where+"\n\n"+msg), 0o644)
 }

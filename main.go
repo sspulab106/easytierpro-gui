@@ -6,7 +6,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	"github.com/wailsapp/wails/v2"
@@ -35,6 +38,21 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func main() {
+	// Last-resort crash dump: a panic escaping wails.Run (or anything above)
+	// lands here so the stack survives for diagnosis instead of the window
+	// just vanishing while core children keep running in the background.
+	defer func() {
+		if r := recover(); r != nil {
+			dump := fmt.Sprintf("main panic: %v\n%s", r, debug.Stack())
+			println(dump)
+			if dir, err := os.UserConfigDir(); err == nil {
+				p := filepath.Join(dir, "easytier-pro-gui", "logs", "panic-main.log")
+				_ = os.MkdirAll(filepath.Dir(p), 0o755)
+				_ = os.WriteFile(p, []byte(dump), 0o644)
+			}
+			panic(r) // preserve the crash for the OS/event log
+		}
+	}()
 	// Linux/macOS: mirror the Windows UAC prompt — an installed (root-owned)
 	// GUI started unprivileged in a desktop session raises itself via pkexec
 	// before anything else; the successor exits the wait in --elevated-relaunch.

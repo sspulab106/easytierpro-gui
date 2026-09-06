@@ -38,6 +38,17 @@ jobs:
           npx vue-tsc --noEmit
           npx vite build
 
+      - name: Embed UAC manifest + icon (.syso)
+        # Without the requireAdministrator manifest the exe starts
+        # unprivileged on other machines (no UAC prompt) and the core
+        # cannot create the TUN adapter.
+        run: |
+          go install github.com/akavel/rsrc@v0.10.2
+          "$(go env GOPATH)/bin/rsrc.exe" `
+            -manifest build/windows/easytier-pro-gui.exe.manifest `
+            -ico build/windows/icon.ico `
+            -o rsrc_windows_amd64.syso
+
       - name: Build desktop exe
         env:
           CGO_ENABLED: '0' # wails v2 windows frontend is pure Go — no mingw needed
