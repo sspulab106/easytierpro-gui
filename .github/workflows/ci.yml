@@ -1,0 +1,51 @@
+name: CI
+
+# Smoke build on every push/PR: frontend type-check + a fast compile of the
+# headless server (linux, CGO off) to catch breakage early. Full release
+# builds run in release.yml on tags.
+on:
+  push:
+    branches: ['**']
+  pull_request: {}
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Type-check + compile
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend type-check + build
+        working-directory: frontend
+        run: |
+          npm ci
+          npx vue-tsc --noEmit
+          npx vite build
+
+      - name: Compile headless server (linux amd64)
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: amd64
+        run: go build -trimpath -tags headless -o /tmp/easytier-pro-server .
+
+      - name: Compile desktop (windows amd64, cross)
+        env:
+          CGO_ENABLED: '0' # cross-compile from linux; GUI smoke only
+          GOOS: windows
+          GOARCH: amd64
+        run: go build -trimpath -tags "desktop,production" -o /tmp/easytier-pro-gui.exe .

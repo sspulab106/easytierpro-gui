@@ -1,0 +1,28 @@
+# Go
+*.exe
+*.dll
+*.sys
+*.syso
+build/bin/
+
+# The bundled easytier core/CLI and TUN drivers are compiled INTO the binary
+# via go:embed — keep them versioned or CI builds fail.
+!resources/**
+
+# Node
+node_modules/
+frontend/dist/
+
+# Runtime data (app data dir lives outside the repo)
+*.log
+
+# Local build helpers (Windows-only scratch)
+build/*.ps1.orig
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Editor
+.idea/
+.vscode/

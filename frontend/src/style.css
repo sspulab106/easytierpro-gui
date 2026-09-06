@@ -1,0 +1,232 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   BRUTALIST THEME
+   Design tokens in CSS variables so light/dark swap in one place.
+   Light = cement paper + ink borders/shadows.
+   Dark  = charcoal base + deep-gray cards + cement outlines +
+           pure-black hard shadows (layered, not inverted).
+   ============================================================ */
+:root {
+  --bg: #E8E4D9;        /* cement gray */
+  --ink: #111111;       /* ink black (text + outlines) */
+  --paper: #FFFFFF;     /* card surface */
+  --panel: #111111;     /* nav panel */
+  --panel-fg: #E8E4D9;  /* nav panel text / outlines */
+  --shadow: #111111;    /* hard shadow color */
+  --accent: #FF3B00;    /* signal orange */
+  --blue: #2438FF;      /* electric blue */
+  --yellow: #FFE600;    /* warning yellow */
+  --danger: #FF2E2E;
+  --success: #00C200;
+  --grid-line: rgba(0, 0, 0, 0.05);
+}
+html.dark {
+  --bg: #0E0D0B;        /* warm charcoal */
+  --ink: #D9D5C9;       /* soft cement white (text + outlines) */
+  --paper: #191713;     /* deep-gray card */
+  --panel: #131110;     /* nav panel, one step above bg */
+  --panel-fg: #D9D5C9;
+  --shadow: #000000;    /* pure black hard shadow */
+  --accent: #FF4D1A;    /* brighter orange on dark */
+  --blue: #4A5AFF;
+  --yellow: #FFE600;
+  --danger: #FF3B30;
+  --success: #00C853;
+  --grid-line: rgba(217, 213, 201, 0.05);
+}
+
+@layer base {
+  /* Brutalist core: no rounded corners anywhere */
+  * {
+    border-radius: 0 !important;
+  }
+
+  body {
+    @apply antialiased;
+    font-family: 'Courier New', Courier, 'Microsoft YaHei UI', 'PingFang SC', monospace;
+    background-color: var(--bg);
+    color: var(--ink);
+    line-height: 1.4;
+    /* exposed grid background */
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Arial Black', 'Microsoft YaHei UI', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: -0.5px;
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb {
+    background: var(--ink);
+    border: 2px solid var(--bg);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+  html.dark ::-webkit-scrollbar-thumb {
+    background: #3A362F;
+    border-color: var(--bg);
+  }
+}
+
+@layer components {
+  .card {
+    border: 3px solid var(--ink);
+    background: var(--paper);
+    box-shadow: 8px 8px 0 var(--shadow);
+  }
+  .card-hover {
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .card-hover:hover {
+    transform: translate(-4px, -4px);
+    box-shadow: 12px 12px 0 var(--shadow);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.1rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 2px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--shadow);
+    transition: transform 0.08s, box-shadow 0.08s, background 0.08s;
+  }
+  .btn:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--shadow);
+  }
+  .btn:active {
+    transform: translate(4px, 4px);
+    box-shadow: 0 0 0 var(--shadow);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-secondary {
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+  .btn-ghost:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--ink);
+    box-shadow: 3px 3px 0 var(--shadow);
+    transform: none;
+  }
+  .btn-danger {
+    background: var(--danger);
+    color: #fff;
+  }
+  .btn-sm {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.65rem;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    border: 2px solid var(--ink);
+    padding: 0.15rem 0.6rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .badge-green { background: var(--success); color: #fff; }
+  .badge-yellow { background: var(--yellow); color: #111; }
+  .badge-red { background: var(--danger); color: #fff; }
+  .badge-gray {
+    background: transparent;
+    border-color: var(--ink);
+    color: var(--ink);
+    opacity: 0.75;
+  }
+
+  .input {
+    width: 100%;
+    border: 2px solid var(--ink);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    background: var(--paper);
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.1s;
+  }
+  .input:focus { border-color: var(--accent); }
+  .input::placeholder { color: var(--ink); opacity: 0.4; }
+
+  .label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.35rem;
+    color: var(--ink);
+    opacity: 0.75;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1rem;
+    border: 3px solid var(--ink);
+    background: var(--paper);
+    box-shadow: 6px 6px 0 var(--shadow);
+  }
+}
+
+/* ============================================================
+   WEB vs DESKTOP
+   The desktop window keeps its proportions; the browser UI
+   compacts (smaller base scale, tighter paddings) so more of the
+   topology and tables fit comfortably on screen.
+   ============================================================ */
+html.web {
+  font-size: 14.5px;
+}
+
+/* Phones / narrow windows: tighter page gutters and cards. */
+@media (max-width: 900px) {
+  html.web { font-size: 13.5px; }
+  .app-page { padding: 1rem !important; }
+  .card { padding: 0.875rem !important; }
+  h1 { font-size: 1.05rem !important; }
+}
+
+/* Keep the topology from dominating wide browser windows. */
+html.web .topology-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 62vh;
+  margin: 0 auto;
+}
